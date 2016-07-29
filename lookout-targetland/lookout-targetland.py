@@ -4,6 +4,7 @@ import code
 
 from dronekit import connect, VehicleMode, LocationGlobalRelative
 import time, sys
+import utm
 
 # Global vehicle object represents drone or simulator
 vehicle = None
@@ -56,10 +57,15 @@ def start_connect():
 
     # TODO: FIX THE ACTUAL HOME LOCATION
     homelocation_hacked = vehicle.location.global_frame
-    homelocation_local_hacked = vehicle.location.local_frame
+    homelocation_local_hacked = utm.from_latlon(homelocation_hacked.lat,\
+                                                homelocation_hacked.lon)
     print " Home Location: %s" % homelocation_hacked
-    print " Home Location Local: %s" % homelocation_local_hacked
+    print " Home Location Local: %s,%s,%s,%s" % homelocation_local_hacked
 
+# Returns UTM in form (EASTING, NORTHING, ZONE NUMBER, ZONE LETTER)
+def get_location_utm():
+    l = vehicle.location.global_frame
+    return utm.from_latlon(l.lat, l.lon)
 
 def arm_and_takeoff(aTargetAltitude):
     """
@@ -101,9 +107,10 @@ def arm_and_takeoff(aTargetAltitude):
 # Return relative North, East offset of landing zone
 def acquire_target_NED_location():
     global vehicle, homelocation_hacked, homelocation_local_hacked
+    current_E,current_N,_,_=get_location_utm()
 
-    dN = vehicle.location.local_frame.north - homelocation_local_hacked.north
-    dE = vehicle.location.local_frame.east - homelocation_local_hacked.east
+    dE = current_E - homelocation_local_hacked[0]
+    dN = current_N - homelocation_local_hacked[1]
     return (dN + 1, dE + 1)
 
 def land_control_velocity(dN, dE):
@@ -168,18 +175,6 @@ def precision_land():
     #vehicle.mode = VehicleMode("LAND")
     pass
 
-# def send_land_message(x, y):
-#     msg = vehicle.message_factory.landing_target_encode(
-#         0,       # time_boot_ms (not used)
-#         0,       # target num
-#         0,       # frame
-#         x,       #x
-#         y,       #y
-#         0,       # altitude.  Not supported.
-#         0,0)     # size of target in radians
-#     vehicle.send_mavlink(msg)
-#     vehicle.flush()
-
 def send_ned_velocity(velocity_x, velocity_y, velocity_z):
     global vehicle, homelocation_hacked, homelocation_local_hacked
     """
@@ -203,11 +198,10 @@ def send_ned_velocity(velocity_x, velocity_y, velocity_z):
 start_connect()
 
 if vehicle is not None:
-    if homelocation_hacked is not None and homelocation_local_hacked is not None:
+    if (homelocation_hacked is not None) and (homelocation_local_hacked is not None):
         arm_and_takeoff(5)
         time.sleep(10)
         precision_land()
-
     print "Close vehicle object"
     vehicle.close()
 else:
