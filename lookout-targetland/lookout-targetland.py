@@ -2,9 +2,17 @@
 # -*- coding: utf-8 -*-
 import code
 
+# server
+from flask import Flask, Response, request, render_template
+
+# drone control
 from dronekit import connect, VehicleMode, LocationGlobalRelative
 import time, sys
 import utm
+import os
+
+# If true, won't actually start motors
+TEST_MODE = False
 
 # Global vehicle object represents drone or simulator
 vehicle = None
@@ -17,6 +25,7 @@ def start_connect():
     global homelocation_local_hacked
 
     print 'Begin Connect'
+
     try:
         target = sys.argv[1] if len(sys.argv) >= 2 else 'tcp:127.0.0.1:5762'  #'udpin:0.0.0.0:14550'
         print 'Connecting to ' + target + '...'
@@ -74,6 +83,9 @@ def arm_and_takeoff(aTargetAltitude):
     global vehicle, homelocation_hacked, homelocation_local_hacked
 
     print "Begin arm and takeoff"
+
+    if TEST_MODE:
+        return
 
     print "Basic pre-arm checks"
     # Don't try to arm until autopilot is ready
@@ -136,8 +148,10 @@ def land_control_velocity(dN, dE):
 
 def precision_land():
     global vehicle, homelocation_hacked, homelocation_local_hacked
-
     print "Begin Precision Land"
+
+    if TEST_MODE:
+        return
 
     print "Going home to Home Location: %s" % homelocation_hacked
     vehicle.gimbal.rotate(-90,0,0)
@@ -160,20 +174,16 @@ def precision_land():
     time.sleep(10)
     send_ned_velocity(0, 0, .1)
 
-    while(True):
+    # TODO Setting for land threshold
+    while(vehicle.location.global_relative_frame.alt > .3):
         (dN, dE) = acquire_target_NED_location()
         (v_n, v_e, v_d) = land_control_velocity(dN, dE)
 
         print "dN: %s, dE: %s, v_n: %s, v_e: %s, v_d: %s" % (dN, dE, v_n, v_e, v_d)
         send_ned_velocity(v_n, v_e, v_d)
-        time.sleep(.1)
-    # time.sleep(10)
-    #
-    # while(True):
-    #     send_land_message(0,0)
-    #     time.sleep(1)
-    #vehicle.mode = VehicleMode("LAND")
-    pass
+        time.sleep(.5)
+
+    vehicle.mode = VehicleMode("LAND")
 
 def send_ned_velocity(velocity_x, velocity_y, velocity_z):
     global vehicle, homelocation_hacked, homelocation_local_hacked
@@ -181,28 +191,51 @@ def send_ned_velocity(velocity_x, velocity_y, velocity_z):
     Move vehicle in direction based on specified velocity vectors.
     """
     msg = vehicle.message_factory.set_position_target_local_ned_encode(
-        0,       # time_boot_ms (not used)
-        0, 0,    # target system, target component
-        1, # NED frame constant
+        0,          # time_boot_ms (not used)
+        0, 0,       # target system, target component
+        1,          # NED frame constant
         0b0000111111000111, # type_mask (only speeds enabled)
-        0, 0, 0, # x, y, z positions (not used)
+        0, 0, 0,    # x, y, z positions (not used)
         velocity_x, velocity_y, velocity_z, # x, y, z velocity in m/s
-        0, 0, 0, # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
-        0, 0)    # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
+        0, 0, 0,    # x, y, z acceleration (not supported yet, ignored in GCS_Mavlink)
+        0, 0)       # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
 
     vehicle.send_mavlink(msg)
 
-# Runtime Script:
-# code.interact(local=locals())
+#### Start Server Code
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'kolibri_secret_key'
 
-start_connect()
+@app.route('/api/arm_takeoff_endpoint', methods=['POST'])
+def arm_takeoff_endpoint():
+    response_message = "Unknown Error"
 
-if vehicle is not None:
-    if (homelocation_hacked is not None) and (homelocation_local_hacked is not None):
-        arm_and_takeoff(5)
-        time.sleep(10)
-        precision_land()
+    if vehicle is not None:
+        if (homelocation_hacked is not None) and (homelocation_local_hacked is not None):
+            arm_and_takeoff(5)
+            response_message = "Takeoff Successful"
+    else:
+        response_message = "Takeoff Failed: Vehicle was None"
+
+    return Response(response_message,
+            mimetype='application/text',
+            headers={'Cache-Control': 'no-cache',
+            'Access-Control-Allow-Origin': '*'})
+
+@app.route('/api/land_endpoint', methods=['POST'])
+def land_endpoint():
+    precision_land()
+
     print "Close vehicle object"
     vehicle.close()
-else:
-    print "Vehicle was none??"
+    return Response("Land request recieved",
+            mimetype='application/text',
+            headers={'Cache-Control': 'no-cache',
+            'Access-Control-Allow-Origin': '*'})
+#### End Server Code
+
+# Run Script
+print "Running Lookout Targetland. TEST_MODE=%s" % TEST_MODE
+start_connect()
+
+app.run(host='0.0.0.0', port=5000, debug=False)
