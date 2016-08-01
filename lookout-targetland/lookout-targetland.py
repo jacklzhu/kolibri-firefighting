@@ -155,6 +155,34 @@ def land_control_velocity(dN, dE):
     v_d = .3
     return (v_n, v_e, v_d)
 
+
+
+
+def get_distance_meters(aLocation1, aLocation2):
+    """
+    Returns the ground distance in metres between two LocationGlobal objects.
+
+    This method is an approximation, and will not be accurate over large distances and close to the
+    earth's poles.
+    """
+    dlat = aLocation2.lat - aLocation1.lat
+    dlong = aLocation2.lon - aLocation1.lon
+    return math.sqrt((dlat*dlat) + (dlong*dlong)) * 1.113195e5
+
+def simple_goto_blocking(vehicle, target_location):
+    current_location = vehicle.location.global_relative_frame
+    target_distance = get_distance_meters
+    vehicle.simple_goto(target_location)
+
+    while vehicle.mode.name=="GUIDED":
+        remainingDistance = get_distance_metres(vehicle.location.global_frame, \
+        targetLocation)
+        print "Distance to target: ", remainingDistance
+        if remainingDistance<=targetDistance*0.01: #Just below target, in case of undershoot.
+            print "Reached target"
+            break;
+        time.sleep(2)
+
 def precision_land():
     global vehicle, homelocation_hacked, homelocation_local_hacked
     print "Begin Precision Land"
@@ -167,7 +195,7 @@ def precision_land():
     above_home_loc = LocationGlobalRelative(homelocation_hacked.lat, \
                                             homelocation_hacked.lon, \
                                             10)
-    vehicle.simple_goto(above_home_loc)
+    simple_goto_blocking(vehicle, above_home_loc)
 
     # TODO Put loop here
     time.sleep(10)
@@ -177,7 +205,7 @@ def precision_land():
                                             homelocation_hacked.lon, \
                                             5)
 
-    vehicle.simple_goto(above_home_loc, groundspeed=.3)
+    simple_goto(vehicle, above_home_loc, groundspeed=.3)
 
     # TODO Loop here
     time.sleep(10)
