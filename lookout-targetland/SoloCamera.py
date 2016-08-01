@@ -4,6 +4,7 @@ import numpy as np
 import time
 import os
 import inspect
+import cv2
 
 script_dir =  os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 solocam = CDLL(script_dir + "/libsolocam.so")
@@ -61,12 +62,20 @@ class SoloCamera(object):
 
   def read(self):
     self.reading = True
+    # bufp = BUF_P()
+    # check(solocam.solocam_read_frame(self.ctx, byref(bufp)))
+    # bufc = bufp.contents
+    # image = np.ctypeslib.as_array(bufc.data,shape = (self.height*self.width,)).reshape(self.height, self.width)
+
+    # Getting color images https://github.com/3drobotics/solodevguide/issues/255
     bufp = BUF_P()
     check(solocam.solocam_read_frame(self.ctx, byref(bufp)))
     bufc = bufp.contents
-    image = np.ctypeslib.as_array(bufc.data,shape = (self.height*self.width,)).reshape(self.height, self.width)
-    cp_image = np.empty_like(image)
-    np.copyto(cp_image,image)
+    imageYUV = np.ctypeslib.as_array(bufc.data,shape = (bufc.used,)).reshape(int(self.height*1.5), self.width)
+    color = cv2.cvtColor(imageYUV,cv2.COLOR_YUV420P2RGB)
+
+    cp_image = np.empty_like(color)
+    np.copyto(cp_image,color)
     check(solocam.solocam_free_frame(self.ctx, bufp))
     self.reading = False
     return True, cp_image

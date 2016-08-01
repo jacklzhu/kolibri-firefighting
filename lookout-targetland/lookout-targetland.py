@@ -2,6 +2,12 @@
 # -*- coding: utf-8 -*-
 import code
 
+# camera
+from SoloCamera import SoloCamera
+import cv2
+import numpy as np
+import threading
+
 # server
 from flask import Flask, Response, request, render_template
 
@@ -12,7 +18,8 @@ import utm
 import os
 
 # If true, won't actually start motors
-TEST_MODE = False
+TEST_MODE = True
+print "Running Lookout Targetland. TEST_MODE=%s" % TEST_MODE
 
 # Global vehicle object represents drone or simulator
 vehicle = None
@@ -116,6 +123,8 @@ def arm_and_takeoff(aTargetAltitude):
             break
         time.sleep(1)
 
+    vehicle.gimbal.rotate(-90,0,0)
+
 # Return relative North, East offset of landing zone
 def acquire_target_NED_location():
     global vehicle, homelocation_hacked, homelocation_local_hacked
@@ -123,7 +132,7 @@ def acquire_target_NED_location():
 
     dE = current_E - homelocation_local_hacked[0]
     dN = current_N - homelocation_local_hacked[1]
-    return (dN + 1, dE + 1)
+    return (dN, dE)
 
 def land_control_velocity(dN, dE):
     global vehicle, homelocation_hacked, homelocation_local_hacked
@@ -143,7 +152,7 @@ def land_control_velocity(dN, dE):
     if (dE > threshold):
         v_e = -v
 
-    v_d = .1
+    v_d = .3
     return (v_n, v_e, v_d)
 
 def precision_land():
@@ -172,7 +181,6 @@ def precision_land():
 
     # TODO Loop here
     time.sleep(10)
-    send_ned_velocity(0, 0, .1)
 
     # TODO Setting for land threshold
     while(vehicle.location.global_relative_frame.alt > .3):
@@ -206,13 +214,43 @@ def send_ned_velocity(velocity_x, velocity_y, velocity_z):
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'kolibri_secret_key'
 
+# To handle debug video stream
+
+#open HDMI-In as a video capture device
+#BE SURE YOU HAVE RUN `SOLO VIDEO ACQUIRE`
+video_capture = SoloCamera()
+
+def get_frame():
+    # video_capture.clear()
+    ret, frame = video_capture.read()
+    ret, jpeg = cv2.imencode('.jpg', frame)
+    return jpeg.tostring()
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+def gen():
+    while True:
+        frame = get_frame()
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
+@app.route('/video_feed')
+def video_feed():
+    return Response(gen(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+# Actual takeoff/land endpoints
 @app.route('/api/arm_takeoff_endpoint', methods=['POST'])
 def arm_takeoff_endpoint():
+    print "Got POST request to arm_takeoff_endpoint"
     response_message = "Unknown Error"
 
     if vehicle is not None:
         if (homelocation_hacked is not None) and (homelocation_local_hacked is not None):
-            arm_and_takeoff(5)
+            arm_and_takeoff(15)
             response_message = "Takeoff Successful"
     else:
         response_message = "Takeoff Failed: Vehicle was None"
@@ -224,6 +262,8 @@ def arm_takeoff_endpoint():
 
 @app.route('/api/land_endpoint', methods=['POST'])
 def land_endpoint():
+    print "Got POST request to land_endpoint"
+
     precision_land()
 
     print "Close vehicle object"
@@ -235,7 +275,6 @@ def land_endpoint():
 #### End Server Code
 
 # Run Script
-print "Running Lookout Targetland. TEST_MODE=%s" % TEST_MODE
-start_connect()
-
 app.run(host='0.0.0.0', port=5000, debug=False)
+
+start_connect()
