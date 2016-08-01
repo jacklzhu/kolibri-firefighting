@@ -5,6 +5,8 @@ import code
 from dronekit import connect, VehicleMode, LocationGlobalRelative
 import time, sys
 import utm
+import math
+import target_detect
 
 # Global vehicle object represents drone or simulator
 vehicle = None
@@ -107,11 +109,29 @@ def arm_and_takeoff(aTargetAltitude):
 # Return relative North, East offset of landing zone
 def acquire_target_NED_location():
     global vehicle, homelocation_hacked, homelocation_local_hacked
-    current_E,current_N,_,_=get_location_utm()
+    # current_E,current_N,_,_ = get_location_utm()
+    # dN = current_E - homelocation_local_hacked[0]
+    # dE = current_N - homelocation_local_hacked[1]
 
-    dE = current_E - homelocation_local_hacked[0]
-    dN = current_N - homelocation_local_hacked[1]
-    return (dN + 1, dE + 1)
+    target_x, target_y = target_detect.get_target_coords(False)
+    if target_x is None or target_y is None: # If no target signal
+        return (0, 0)                        # land straight down
+
+    dX = (float(target_x) - target_detect.horizontal_resolution/2)\
+    /target_detect.horizontal_resolution
+    dY = (target_detect.vertical_resolution/2 - float(target_y))\
+    /target_detect.vertical_resolution
+
+    # dX and dY are in the coordinates of the drone
+    # Now we rotate them back into NED coorinates
+    theta = vehicle.attitude.yaw
+    if theta is None: # If no orientation signal land straight down.
+        return (0, 0)
+
+    dN = dY * math.cos(theta) - dX * math.sin(theta)
+    dE = dX * math.cos(theta) + dY * math.sin(theta)
+
+    return (dN, dE)
 
 def land_control_velocity(dN, dE):
     global vehicle, homelocation_hacked, homelocation_local_hacked

@@ -4,13 +4,13 @@ import cv2
 import numpy as np
 
 #color settings
-hue_lower = 100
-hue_upper = 140
-saturation_lower = 40
+hue_lower = 25
+hue_upper = 50
+saturation_lower = 120
 saturation_upper = 256
-value_lower = 60
+value_lower = 50
 value_upper = 256
-min_contour_area = 500 # the smallest number of pixels in a contour before it will register this as a target
+min_contour_area = 800 # the smallest number of pixels in a contour before it will register this as a target
 
 #camera
 horizontal_fov = 118.2 * math.pi/180
@@ -27,6 +27,8 @@ def get_target_coords(display):
     tobecontourdetected = inrangepixels.copy()
 
     #TODO filter better. binary morphology would be a good start.
+    cross = cv2.getStructuringElement(cv2.MORPH_CROSS,(5,5))
+    tobecontourdetected = cv2.morphologyEx(tobecontourdetected, cv2.MORPH_OPEN, cross)
     contours,hierarchy = cv2.findContours(tobecontourdetected,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
 
     contour_sizes=[]
@@ -49,6 +51,10 @@ def get_target_coords(display):
     if len(contour_sizes)>0:
         biggest_contour_centroid=contour_centroids[biggest_contour_index]
 
+
+    x = None
+    y = None
+
     #if the biggest contour was found, color it blue and send the message
     if biggest_contour_centroid is not None:
         cv2.circle(capture,biggest_contour_centroid,5,(255,0,0),-1)
@@ -58,4 +64,4 @@ def get_target_coords(display):
         cv2.imshow('capture',capture)
         cv2.imshow('inrangepixels',inrangepixels)
 
-    return x,y
+    return x, y
