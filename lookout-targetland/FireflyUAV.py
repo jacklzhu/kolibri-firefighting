@@ -213,37 +213,12 @@ class FireflyUAV:
                                                      dNorth=dN, dEast=dE)
         self.goto_position_global(targetLocation)
 
-    # def land_control_velocity(dN, dE):
-    #     global vehicle, homelocation_hacked, homelocation_local_hacked
-    #
-    #     threshold = .1
-    #     v = .1
-    #     v_n = 0
-    #     v_e = 0
-    #
-    #     if (dN < -threshold):
-    #         v_n = v
-    #     if (dN > threshold):
-    #         v_n = -v
-    #
-    #     if (dE < -threshold):
-    #         v_e = v
-    #     if (dE > threshold):
-    #         v_e = -v
-    #
-    #     v_d = .3
-    #     return (v_n, v_e, v_d)
+    def move_latlong(self, lat, lng):
+        targetLocation = LocationGlobal(lat, lng, self.vehicle.location.global_frame.alt)
+        if uavutil.get_distance_metres(self.vehicle.location.global_frame, targetLocation) < 100:
+            self.vehicle.simple_goto(targetLocation)
+        else:
+            print "ERROR: Too far (100m)"
 
-    # # Returns UTM in form (EASTING, NORTHING, ZONE NUMBER, ZONE LETTER)
-    # def get_location_utm():
-    #     l = vehicle.location.global_frame
-    #     return utm.from_latlon(l.lat, l.lon)
-    #
-    # # Return relative North, East offset of landing zone
-    # def acquire_target_NED_location():
-    #     global vehicle, homelocation_hacked, homelocation_local_hacked
-    #     current_E,current_N,_,_=get_location_utm()
-    #
-    #     dE = current_E - homelocation_local_hacked[0]
-    #     dN = current_N - homelocation_local_hacked[1]
-    #     return (dN, dE)
+    def get_latlong(self):
+        return {"lat":self.vehicle.location.global_frame.lat, "long":self.vehicle.location.global_frame.lon}
