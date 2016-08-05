@@ -14,9 +14,12 @@ import uavutil
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'kolibri_secret_key'
 
+# Make False if there isn't a drone or a simulator
+USE_DRONE = False;
 
-uav = FireflyUAV.FireflyUAV(TEST_MODE=False)
-uav.connect()
+if USE_DRONE:
+    uav = FireflyUAV.FireflyUAV(TEST_MODE=False)
+    uav.connect()
 
 movement_amount = 10 #m
 altitude = 20 #m
@@ -25,8 +28,12 @@ altitude = 20 #m
 @app.route('/api/arm_takeoff', methods=['POST'])
 def arm_takeoff():
     print "Got POST request to arm_takeoff_endpoint"
-    response_message = uav.arm_and_takeoff(altitude)
-    uav.set_heading(0)
+
+    if USE_DRONE:
+        response_message = uav.arm_and_takeoff(altitude)
+        uav.set_heading(0)
+    else:
+        response_message = "Got takeoff message [test mode]"
 
     return Response(response_message,
             mimetype='application/text',
@@ -37,8 +44,11 @@ def arm_takeoff():
 @app.route('/api/move_north', methods=['POST'])
 def move_north():
     print "Got POST request to move_north"
-    uav.set_heading(0)
-    uav.move_relative(dN=movement_amount, dE=0)
+
+    if USE_DRONE:
+        uav.set_heading(0)
+        uav.move_relative(dN=movement_amount, dE=0)
+
     return Response("",
             mimetype='application/text',
             headers={'Cache-Control': 'no-cache',
@@ -47,8 +57,11 @@ def move_north():
 @app.route('/api/move_south', methods=['POST'])
 def move_south():
     print "Got POST request to move_south"
-    uav.set_heading(0)
-    uav.move_relative(dN=-movement_amount, dE=0)
+
+    if USE_DRONE:
+        uav.set_heading(0)
+        uav.move_relative(dN=-movement_amount, dE=0)
+
     return Response("",
             mimetype='application/text',
             headers={'Cache-Control': 'no-cache',
@@ -57,8 +70,11 @@ def move_south():
 @app.route('/api/move_east', methods=['POST'])
 def move_east():
     print "Got POST request to move_east"
-    uav.set_heading(0)
-    uav.move_relative(dN=0, dE=movement_amount)
+
+    if USE_DRONE:
+        uav.set_heading(0)
+        uav.move_relative(dN=0, dE=movement_amount)
+
     return Response("",
             mimetype='application/text',
             headers={'Cache-Control': 'no-cache',
@@ -67,8 +83,11 @@ def move_east():
 @app.route('/api/move_west', methods=['POST'])
 def move_west():
     print "Got POST request to move_west"
-    uav.set_heading(0)
-    uav.move_relative(dN=0, dE=-movement_amount)
+
+    if USE_DRONE:
+        uav.set_heading(0)
+        uav.move_relative(dN=0, dE=-movement_amount)
+
     return Response("",
             mimetype='application/text',
             headers={'Cache-Control': 'no-cache',
@@ -77,7 +96,9 @@ def move_west():
 @app.route('/api/return_home', methods=['POST'])
 def return_home():
     print "Got POST request to return_home"
-    response_message = uav.return_home()
+
+    if USE_DRONE:
+        response_message = uav.return_home()
 
     return Response("Return home recieved",
             mimetype='application/text',
@@ -87,15 +108,15 @@ def return_home():
 @app.route('/api/move_latlong', methods=['POST'])
 def goto_latlong():
     print "Got POST request to goto_latlong"
-    print request.args
 
     lat = float(request.args.get("lat"))
     lng = float(request.args.get("long"))
 
     print lat, lng
 
-    uav.set_heading(0)
-    response_message = uav.move_latlong(lat,lng)
+    if USE_DRONE:
+        uav.set_heading(0)
+        response_message = uav.move_latlong(lat,lng)
 
     return Response("goto Latlong Recieved",
             mimetype='application/text',
@@ -105,8 +126,13 @@ def goto_latlong():
 @app.route('/api/get_latlong', methods=['GET'])
 def get_latlong():
     print "GET request to get_latlong"
+    if USE_DRONE:
+        response_message = json.dumps(uav.get_latlong())
+    else:
+        # Response for testing
+        response_message = json.dumps({"lat":37.422911, "long":-122.199350})
 
-    return Response(json.dumps(uav.get_latlong()),
+    return Response(response_message,
             mimetype='application/text',
             headers={'Cache-Control': 'no-cache',
             'Access-Control-Allow-Origin': '*'})
