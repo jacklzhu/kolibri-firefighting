@@ -3,19 +3,20 @@ import time, sys, os
 import uavutil
 
 class FireflyUAV:
-    def __init__(self, TEST_MODE=True):
+    def __init__(self, altitude=40, TEST_MODE=True):
         self.vehicle = None
         self.takeoff_location = None
         self.TEST_MODE = TEST_MODE
+        self.altitude = altitude
 
         # If true, won't actually start motors
-        TEST_MODE = True
-        print "FireflyUAV Initialized. TEST_MODE=%s" % self.TEST_MODE
+        print "FireflyUAV Initialized. Altitude=%s, TEST_MODE=%s" % (self.altitude, self.TEST_MODE)
 
     def connect(self):
         print 'Begin Connect'
 
         try:
+            # Try to connect to simulator. This will fail if there isn't a simulator present
             target = sys.argv[1] if len(sys.argv) >= 2 else 'tcp:127.0.0.1:5762'
             print 'Connecting to ' + target + '...'
             self.vehicle = connect(target, wait_ready=True)
@@ -55,27 +56,41 @@ class FireflyUAV:
         print "Set default/target airspeed to 3"
         self.vehicle.airspeed = 3
 
-    def arm_and_takeoff(self, aTargetAltitude):
+        print "Set Altitude is: ", self.altitude
+
+        return (True, "")
+
+    def is_armable(self):
+        return self.vehicle.is_armable
+
+    def is_active(self):
+        # TODO: Make this check more robust
+        # Should return true if the robot is able to take movement commands.
+        return self.vehicle.armed
+
+    def arm_and_takeoff(self):
         """
-        Arms vehicle and fly to aTargetAltitude.
+        Arms vehicle and fly to self.altitude.
+
+        Note: This is now Non-blocking.
         """
 
         print "Begin arm and takeoff"
 
         if self.TEST_MODE:
-            return "Test Mode"
+            return (True, "Test Mode")
 
         self.takeoff_location = self.vehicle.location.global_relative_frame
         print "Takeoff Location: %s" % self.takeoff_location
 
+        # TODO: Coalesce takeoff_location and home_location
         if self.takeoff_location is None:
-            return "ERROR: takeoff_location was None."
+            return (False, "ERROR: takeoff_location was None.")
 
         print "Basic pre-arm checks"
         # Don't try to arm until autopilot is ready
-        while not self.vehicle.is_armable:
-            print " Waiting for vehicle to initialise..."
-            time.sleep(1)
+        if not self.is_armable():
+            return (False, "Vehicle is not armable yet.")
 
         print "Arming motors"
         # Copter should arm in GUIDED mode
@@ -88,37 +103,57 @@ class FireflyUAV:
             time.sleep(1)
 
         print "Taking off!"
-        self.vehicle.simple_takeoff(aTargetAltitude) # Take off to target altitude
-        self.wait_for_target_altitude(aTargetAltitude)
+        self.vehicle.simple_takeoff(self.altitude) # Take off to target altitude
+        return (True, "")
 
-    def wait_for_target_altitude(self, aTargetAltitude):
-        # Wait until the vehicle reaches a safe height before processing the goto (otherwise the command
-        #  after Vehicle.simple_takeoff will execute immediately).
-        print "Target Altitude: ", aTargetAltitude
-        while True:
+    def is_at_altitude(self):
+        '''
+        Returns True if the vehicle is close to its intended altitude
+        '''
+        return self.vehicle.location.global_relative_frame.alt >= self.altitude*0.95;
+
+    def goto_correct_altitude(self):
+        '''
+        Send command to rise to self.altitude
+        '''
+        targetlocation = self.vehicle.location.global_relative_frame
+        targetlocation.alt = self.altitude
+        self.goto_position_global(targetlocation)
+
+    def goto_correct_altitude_blocking(self):
+        '''
+        Block until we reach self.altitude
+        '''
+        if self.is_at_altitude():
+            return (True, "Already at altitude")
+        else:
+            self.goto_correct_altitude()
+
+        print "Target Altitude: ", self.altitude
+        while not self.is_at_altitude():
             print " Altitude: ", self.vehicle.location.global_relative_frame.alt
-            #Break and return from function just below target altitude.
-            if self.vehicle.location.global_relative_frame.alt>=aTargetAltitude*0.95:
-                print "Reached target altitude"
-                break
             time.sleep(1)
 
-    def goto_relative_altitude(self, aTargetAltitude):
-        targetlocation = self.vehicle.location.global_relative_frame
-        targetlocation.alt = aTargetAltitude
-        self.goto_blocking(targetlocation)
+        print "Reached Target Altitude"
+        return (True, "Reached target altitude")
 
-    def land(self):
-        self.vehicle.mode = VehicleMode("RTL")
+    def set_altitude(self, newAltitude):
+        if newAltitude < 5:
+            emsg = "Error: Altitude is too low (<5 m)"
+            return (False, emsg)
+        if newAltitude > 100:
+            emsg = "Error: Altitude is too high (>100 m)"
+            return (False, emsg)
+
+        self.altitude = newAltitude
+        self.goto_correct_altitude()
+        return (True, "")
 
     def return_home(self):
-        # TEST
-        return_altitude = 15 # meters
-        self.goto_relative_altitude(return_altitude);
-        targetlocation = self.takeoff_location;
-        targetlocation.alt = return_altitude
-        self.goto_blocking(targetlocation)
-        self.land()
+        # Just use RTL for now, we'll figure something else later
+        while (self.vehicle.mode != VehicleMode("RTL")):
+            self.vehicle.mode = VehicleMode("RTL")
+            time.sleep(.1)
 
     def send_ned_velocity(self, velocity_x, velocity_y, velocity_z):
         """
@@ -176,6 +211,8 @@ class FireflyUAV:
 
         See the above link for information on the type_mask (0=enable, 1=ignore).
         At time of writing, acceleration and yaw bits are ignored.
+
+        DO NOT RUN DIRECTLY FROM SERVER!!!! There is no bound checking here.
         """
         msg = self.vehicle.message_factory.set_position_target_global_int_encode(
             0,       # time_boot_ms (not used)
@@ -193,32 +230,54 @@ class FireflyUAV:
         # send command to vehicle
         self.vehicle.send_mavlink(msg)
 
-    def goto_blocking(self, targetLocation):
-        currentLocation = self.vehicle.location.global_frame
-        targetDistance = uavutil.get_distance_metres(currentLocation, targetLocation)
-        self.goto_position_global(targetLocation)
-
-        while self.vehicle.mode.name=="GUIDED": #Stop action if we are no longer in guided mode.
-            remainingDistance = uavutil.get_distance_metres(self.vehicle.location.global_frame, targetLocation)
-            print "Distance to target: ", remainingDistance
-            if remainingDistance <= .2 : #Just below target, in case of undershoot.
-                print "Reached target"
-                break;
-            time.sleep(2)
-
-        self.wait_for_target_altitude(targetLocation.alt)
-
     def move_relative(self, dN, dE):
+        '''
+        Moves dN in the North direction and dE in the East direction
+        '''
+        if not self.is_active():
+            return (False,"Error: Not Flying")
+
+        self.goto_correct_altitude_blocking()
+
         targetLocation = uavutil.get_location_metres(self.vehicle.location.global_relative_frame,
                                                      dNorth=dN, dEast=dE)
         self.goto_position_global(targetLocation)
 
+        return (True,"")
+
     def move_latlong(self, lat, lng):
-        targetLocation = LocationGlobal(lat, lng, self.vehicle.location.global_frame.alt)
-        if uavutil.get_distance_metres(self.vehicle.location.global_frame, targetLocation) < 100:
-            self.vehicle.simple_goto(targetLocation)
-        else:
-            print "ERROR: Too far (100m)"
+        '''
+        Moves to latlong, with a 100m maximum distance. Maintains the current altitude.
+        '''
+        if not self.is_active():
+            return (False,"Error: Not Flying")
+
+        self.goto_correct_altitude_blocking()
+
+        targetLocation = LocationGlobal(lat, lng, self.altitude)
+
+        if uavutil.get_distance_metres(self.vehicle.location.global_frame, targetLocation) > 100:
+            emsg="ERROR: Too far (>100m)"
+            print emsg
+            return (False, emsg)
+
+        self.goto_position_global(targetLocation)
+        return (True, "")
 
     def get_latlong(self):
-        return {"lat":self.vehicle.location.global_frame.lat, "long":self.vehicle.location.global_frame.lon}
+        return {"lat":self.vehicle.location.global_frame.lat,
+                "long":self.vehicle.location.global_frame.lon,
+                "alt":self.vehicle.location.global_relative_frame.alt}
+
+    # def goto_blocking(self, targetLocation):
+    #     currentLocation = self.vehicle.location.global_frame
+    #     targetDistance = uavutil.get_distance_metres(currentLocation, targetLocation)
+    #     self.goto_position_global(targetLocation)
+    #
+    #     while self.vehicle.mode.name=="GUIDED": #Stop action if we are no longer in guided mode.
+    #         remainingDistance = uavutil.get_distance_metres(self.vehicle.location.global_frame, targetLocation)
+    #         print "Distance to target: ", remainingDistance
+    #         if remainingDistance <= .3 : #Just below target, in case of undershoot.
+    #             print "Reached target"
+    #             break;
+    #         time.sleep(2)
