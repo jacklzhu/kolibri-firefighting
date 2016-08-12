@@ -1,0 +1,15 @@
+{
+  "uploadOnSave": true,
+  "useAtomicWrites": false,
+  "deleteLocal": false,
+  "hostname": "10.1.1.10",
+  "port": "22",
+  "target": "/home/root/scripts/lookout-targetland",
+  "ignore": [
+    ".pyc"
+  ],
+  "username": "root",
+  "password": "TjSDBkAu",
+  "watch": [],
+  "transport": "scp"
+}
