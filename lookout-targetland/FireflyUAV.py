@@ -2,15 +2,34 @@ from dronekit import mavutil, connect, VehicleMode, LocationGlobal, LocationGlob
 import time, sys, os
 import uavutil
 
+from detection import Detector, DetectorSerial
+
 class FireflyUAV:
-    def __init__(self, altitude=40, TEST_MODE=True):
+    def __init__(self, altitude=40, OBSTACLE_AVOIDANCE=False, TEST_MODE=True):
         self.vehicle = None
         self.takeoff_location = None
         self.TEST_MODE = TEST_MODE
+        self.OBSTACLE_AVOIDANCE = OBSTACLE_AVOIDANCE
         self.altitude = altitude
+
+        if self.OBSTACLE_AVOIDANCE:
+            # TODO Make this cleaner
+            self.detector = Detector(detection_callback=self.handle_detection,
+                                     threshold_cm=100,
+                                     numsensors=3)
+            self.detectorserial = DetectorSerial(detector=self.detector)
+            self.detectorserial.start_thread();
 
         # If true, won't actually start motors
         print "FireflyUAV Initialized. Altitude=%s, TEST_MODE=%s" % (self.altitude, self.TEST_MODE)
+
+    def __del__(self):
+        print "Deleting Firefly Instance"
+        if self.OBSTACLE_AVOIDANCE:
+            self.detectorserial.stop_thread()
+
+    def handle_detection(self, detection):
+        print "DETECTION OCCURED", detection
 
     def connect(self):
         print 'Begin Connect'

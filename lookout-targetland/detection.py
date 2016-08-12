@@ -5,9 +5,17 @@ import time
 import threading
 
 class Detector:
-    def __init__(self, detection_callback, numsensors=3):
+    def __init__(self, detection_callback, threshold_cm=100, numsensors=3):
         self.numsensors = numsensors
         self.filters = [0] * self.numsensors
+        self.detection_callback = detection_callback
+        self.threshold_cm = threshold_cm
+
+    def check_detection(self):
+        for f in self.filters:
+            if 0 < f < self.threshold_cm:
+                self.detection_callback(self.filters)
+                return
 
     def register_measurement(self, measurements_cm):
         if len(measurements_cm) != self.numsensors:
@@ -18,7 +26,8 @@ class Detector:
         for i,measure in enumerate(measurements_cm):
             self.filters[i] = measure
 
-        print measurements_cm
+        # print measurements_cm
+        self.check_detection()
 
     def get_measurements(self):
         return self.filters
@@ -39,20 +48,13 @@ class DetectorSerial:
 
         self.process_thread = threading.Thread(target=self.process_thread_func)
 
-        def signal_handler(signal, frame):
-            print('Got SIGINT. Stopping Thread.')
-            self.stop_thread()
-
-        signal.signal(signal.SIGINT, signal_handler)
-
-    def __del__(self):
-        print "Deleting"
-
     def start_thread(self):
+        print "STARTING"
         self.detector_running = True
         self.process_thread.start()
 
     def stop_thread(self):
+        print "STOPPING"
         self.detector_running = False
         self.process_thread.join()
 
@@ -67,9 +69,19 @@ class DetectorSerial:
         print('Exiting');
         self.ser.close()
 
-def OhNo(measurements):
-    print "Oh No!: ", measurements
+if __name__ == "__main__":
+    def OhNo(measurements):
+        print "Oh No!: ", measurements
 
-detector = Detector(numsensors=3, detection_callback=OhNo)
-detectorserial = DetectorSerial(detector=detector)
-detectorserial.start_thread()
+    detector = Detector(numsensors=3, detection_callback=OhNo)
+    detectorserial = DetectorSerial(detector=detector)
+
+    def signal_handler(signal, frame):
+        print('Got SIGINT. Stopping Thread.')
+        detectorserial.stop_thread()
+    signal.signal(signal.SIGINT, signal_handler)
+
+    detectorserial.start_thread()
+
+    time.sleep(100000)
+    detectorserial.stop_thread()

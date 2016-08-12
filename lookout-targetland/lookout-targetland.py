@@ -5,6 +5,7 @@ import json
 
 # server
 from flask import Flask, Response, request, render_template, jsonify
+from flask_socketio import SocketIO
 
 # drone control
 import FireflyUAV
@@ -13,16 +14,20 @@ import uavutil
 #### Start Server Code
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'kolibri_secret_key'
+socketio = SocketIO(app)
 
 # Make False if there isn't a drone or a simulator
 USE_DRONE = True
 TEST_MODE = False
+OBSTACLE_AVOIDANCE = True
 
 movement_amount = 10 #m
 altitude = 20 #m
 
 if USE_DRONE:
-    uav = FireflyUAV.FireflyUAV(altitude=altitude, TEST_MODE=TEST_MODE)
+    uav = FireflyUAV.FireflyUAV(altitude=altitude,
+                                OBSTACLE_AVOIDANCE=OBSTACLE_AVOIDANCE,
+                                TEST_MODE=TEST_MODE)
     uav.connect()
 
 # Actual takeoff/land endpoints
@@ -198,15 +203,10 @@ def is_active():
             headers={'Cache-Control': 'no-cache',
             'Access-Control-Allow-Origin': '*'})
 
-# @app.route('/api/land', methods=['POST'])
-# def land():
-#     print "Got POST request to land"
-#     response_message = uav.land()
-#
-#     return Response("Land request recieved",
-#             mimetype='application/text',
-#             headers={'Cache-Control': 'no-cache',
-#             'Access-Control-Allow-Origin': '*'})
-
-#### End Server Code
 app.run(host='0.0.0.0', port=5000, debug=False)
+#### End Server Code
+
+#### Cleanup
+print "App Ending"
+uav.__del__()
+# uav.detectorserial.stop_thread()
