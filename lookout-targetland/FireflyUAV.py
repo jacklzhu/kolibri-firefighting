@@ -12,6 +12,8 @@ class FireflyUAV:
         self.OBSTACLE_AVOIDANCE = OBSTACLE_AVOIDANCE
         self.altitude = altitude
 
+        self.server_detection_callback = None
+
         if self.OBSTACLE_AVOIDANCE:
             # TODO Make this cleaner
             try:
@@ -33,8 +35,19 @@ class FireflyUAV:
         if self.OBSTACLE_AVOIDANCE:
             self.detectorserial.stop_thread()
 
+    def register_server_detection_callback(self, server_detection_callback):
+        if not hasattr(server_detection_callback, '__call__'):
+            print "Error: detection callback should be callable"
+            return
+
+        self.server_detection_callback = server_detection_callback
+
     def handle_detection(self, detection):
-        print "DETECTION OCCURED", detection
+        if self.server_detection_callback is not None:
+            self.server_detection_callback(detection)
+
+        # SOMETHING HERE TO HANDLE A DETECTION
+        # print "DETECTION OCCURED", detection
 
     def connect(self):
         print 'Begin Connect'

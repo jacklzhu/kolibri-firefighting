@@ -38,8 +38,10 @@ class DetectorSerial:
 
         try:
             self.ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=0)
+            print "Obstacle Avoidance connected on serial /dev/ttyUSB0"
         except serial.serialutil.SerialException:
             self.ser = serial.Serial('/dev/cu.usbserial-A702PYR6', 115200, timeout=0)
+            print "Obstacle Avoidance connected on /dev/cu.usbserial-A702PYR6"
 
         self.kStartChar = 'S'
         self.kDelimiter = ' '

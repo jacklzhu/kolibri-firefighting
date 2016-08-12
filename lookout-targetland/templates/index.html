@@ -1,9 +1,31 @@
+
+<!DOCTYPE html>
+
 <html>
   <head>
-    <title>Video Streaming Demonstration</title>
+    <title>Solo Webserver Example</title>
+    <style>
+html, body { margin: 0; padding: 0; }
+body { padding: 15px 20px; font-family: Helvetica, Arial, sans-serif; }
+pre { font-size: 1.2em; }
+    </style>
+    <script src="/static/jquery.min.js"></script>
+    <script src="/static/socket.io.min.js"></script>
+    <script>
+      var socket = io.connect('//' + document.domain + ':' + location.port);
+      socket.on('connect', function() {
+        socket.on('detection', function (arg) {
+          $('h1').text('Current drone detections:')
+          $('pre').text
+          console.log("Recieved");
+        });
+        console.log("Connected");
+      });
+    </script>
   </head>
   <body>
-    <h1>Video Streaming Demonstration</h1>
-    <img src="{{ url_for('video_feed') }}">
+    <h1>Waiting for connection...</h1>
+    <img src=/static/Solo-Aerial.jpg width=200/>
+    <pre></pre>
   </body>
 </html>

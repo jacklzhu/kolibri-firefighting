@@ -2,19 +2,35 @@
 # -*- coding: utf-8 -*-
 import code
 import json
+import time
 
 # server
 from flask import Flask, Response, request, render_template, jsonify
 from flask_socketio import SocketIO
+import socket
+import threading
 
 # drone control
 import FireflyUAV
 import uavutil
 
 #### Start Server Code
+
+# Allow us to reuse sockets after the are bound.
+# http://stackoverflow.com/questions/25535975/release-python-flask-port-when-script-is-terminated
+socket.socket._bind = socket.socket.bind
+def my_socket_bind(self, *args, **kwargs):
+    self.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    return socket.socket._bind(self, *args, **kwargs)
+socket.socket.bind = my_socket_bind
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'kolibri_secret_key'
 socketio = SocketIO(app)
+
+@app.route('/')
+def index():
+    return render_template('index.html', async_mode=socketio.async_mode)
 
 # Make False if there isn't a drone or a simulator
 USE_DRONE = True
@@ -230,7 +246,24 @@ def get_system_status():
             headers={'Cache-Control': 'no-cache',
             'Access-Control-Allow-Origin': '*'})
 
-app.run(host='0.0.0.0', port=5000, debug=False)
+# Register a socketIO callback for reporting object detections:
+time_last = time.time()
+def send_detection(detections):
+    global time_last
+    ctime = time.time()
+    if ctime - time_last > .2:
+        print "Send detection"
+        time_last = ctime
+        socketio.emit('detection', {'left':str(detections[0]),
+                                    'middle':str(detections[1]),
+                                    'right':str(detections[2])})
+
+uav.register_server_detection_callback(server_detection_callback=send_detection)
+
+try:
+    socketio.run(app, host='0.0.0.0', port=5000)
+except KeyboardInterrupt:
+    pass
 #### End Server Code
 
 #### Cleanup
