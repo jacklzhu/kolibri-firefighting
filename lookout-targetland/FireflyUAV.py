@@ -128,7 +128,7 @@ class FireflyUAV:
 
         print "Taking off!"
         self.vehicle.simple_takeoff(self.altitude) # Take off to target altitude
-        return (True, "")
+        return (True, "Taking off!")
 
     def is_at_altitude(self):
         '''
