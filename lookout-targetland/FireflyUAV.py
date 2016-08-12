@@ -14,11 +14,16 @@ class FireflyUAV:
 
         if self.OBSTACLE_AVOIDANCE:
             # TODO Make this cleaner
-            self.detector = Detector(detection_callback=self.handle_detection,
-                                     threshold_cm=100,
-                                     numsensors=3)
-            self.detectorserial = DetectorSerial(detector=self.detector)
-            self.detectorserial.start_thread();
+            try:
+                self.detector = Detector(detection_callback=self.handle_detection,
+                                         threshold_cm=100,
+                                         numsensors=3)
+                self.detectorserial = DetectorSerial(detector=self.detector)
+                self.detectorserial.start_thread();
+            except Exception:
+                print "Error starting up obstacle avoidance. Check arduino ports?"
+                print "Defaulting to no obstacle avoidance."
+                self.OBSTACLE_AVOIDANCE = False
 
         # If true, won't actually start motors
         print "FireflyUAV Initialized. Altitude=%s, TEST_MODE=%s" % (self.altitude, self.TEST_MODE)
@@ -287,6 +292,10 @@ class FireflyUAV:
         return {"lat":self.vehicle.location.global_frame.lat,
                 "long":self.vehicle.location.global_frame.lon,
                 "alt":self.vehicle.location.global_relative_frame.alt}
+
+    def get_system_status(self):
+        return {"status":str(self.vehicle.system_status),
+                "at_altitude":str(self.is_at_altitude())}
 
     # def goto_blocking(self, targetLocation):
     #     currentLocation = self.vehicle.location.global_frame

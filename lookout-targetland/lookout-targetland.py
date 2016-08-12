@@ -203,6 +203,33 @@ def is_active():
             headers={'Cache-Control': 'no-cache',
             'Access-Control-Allow-Origin': '*'})
 
+'''
+The status has a state property with one of the following values:
+
+UNINIT: Uninitialized system, state is unknown.
+BOOT: System is booting up.
+CALIBRATING: System is calibrating and not flight-ready.
+STANDBY: System is grounded and on standby. It can be launched any time.
+ACTIVE: System is active and might be already airborne. Motors are engaged.
+CRITICAL: System is in a non-normal flight mode. It can however still navigate.
+EMERGENCY: System is in a non-normal flight mode. It lost control over parts or over the whole airframe. It is in mayday and going down.
+POWEROFF: System just initialized its power-down sequence, will shut down now.
+'''
+
+@app.route('/api/get_system_status', methods=['GET'])
+def get_system_status():
+    print "GET request to get_system_status"
+    if USE_DRONE:
+        response_message = json.dumps(uav.get_system_status())
+    else:
+        # Response for testing
+        response_message = json.dumps({"status":"SystemStatus:STANDBY","at_altitude":"True"})
+
+    return Response(response_message,
+            mimetype='application/text',
+            headers={'Cache-Control': 'no-cache',
+            'Access-Control-Allow-Origin': '*'})
+
 app.run(host='0.0.0.0', port=5000, debug=False)
 #### End Server Code
 
