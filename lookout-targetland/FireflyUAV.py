@@ -273,10 +273,13 @@ class FireflyUAV:
         horizontal_resolution = 1280
         vertical_resolution = 720
 
-        alt = self.vehicle.position.global_relative_frame.alt
+        alt = self.vehicle.location.global_relative_frame.alt
 
-        dE = math.tan((xpercent)*horizontal_fov) * alt
-        dN = math.tan((ypercent)*vertical_fov) * alt
+        dE = -math.tan((.50-xpercent)*horizontal_fov) * alt
+        dN = math.tan((.50-ypercent)*vertical_fov) * alt
+
+
+        print "movescreenxy", alt, dN, dE
         self.move_relative(dN=dN, dE=dE)
         return (True, "Moving to dN=%s, dE=%s" % (dN, dE))
 

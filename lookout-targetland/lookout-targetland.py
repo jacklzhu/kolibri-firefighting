@@ -169,7 +169,7 @@ def move_screen_xy():
     response_message = "Got move_screen_xy request"
     if USE_DRONE:
         uav.set_heading(0)
-        success, response_message = uav.move_screen_xy(lat,lng)
+        success, response_message = uav.move_screen_xy(xpercent,ypercent)
         uav.set_heading(0)
 
     return Response(response_message,
