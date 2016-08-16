@@ -1,5 +1,5 @@
 from dronekit import mavutil, connect, VehicleMode, LocationGlobal, LocationGlobalRelative
-import time, sys, os
+import time, sys, os, math
 import uavutil
 
 from detection import Detector, DetectorSerial
@@ -141,7 +141,7 @@ class FireflyUAV:
 
         print "Taking off!"
         self.vehicle.simple_takeoff(self.altitude) # Take off to target altitude
-        return (True, "")
+        return (True, "Taking off!")
 
     def is_at_altitude(self):
         '''
@@ -266,6 +266,19 @@ class FireflyUAV:
             0, 0)    # yaw, yaw_rate (not supported yet, ignored in GCS_Mavlink)
         # send command to vehicle
         self.vehicle.send_mavlink(msg)
+
+    def move_screen_xy(self, xpercent, ypercent):
+        horizontal_fov = 118.2 * math.pi/180
+        vertical_fov = 69.5 * math.pi/180
+        horizontal_resolution = 1280
+        vertical_resolution = 720
+
+        alt = self.vehicle.position.global_relative_frame.alt
+
+        dE = math.tan((xpercent)*horizontal_fov) * alt
+        dN = math.tan((ypercent)*vertical_fov) * alt
+        self.move_relative(dN=dN, dE=dE)
+        return (True, "Moving to dN=%s, dE=%s" % (dN, dE))
 
     def move_relative(self, dN, dE):
         '''

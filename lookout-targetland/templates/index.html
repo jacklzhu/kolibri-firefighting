@@ -16,16 +16,13 @@ pre { font-size: 1.2em; }
       socket.on('connect', function() {
         socket.on('detection', function (arg) {
           $('h1').text('Current drone detections:')
-          $('pre').text
-          console.log("Recieved");
+          $('pre').text(JSON.stringify(arg, null, '  '));
         });
-        console.log("Connected");
       });
     </script>
   </head>
   <body>
     <h1>Waiting for connection...</h1>
-    <img src=/static/Solo-Aerial.jpg width=200/>
     <pre></pre>
   </body>
 </html>

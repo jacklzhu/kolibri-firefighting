@@ -147,7 +147,7 @@ def move_latlong():
     lng = float(request.args.get("long"))
     print lat, lng
 
-    response_message = "Got set_altitude request"
+    response_message = "Got move_latlong request"
     if USE_DRONE:
         uav.set_heading(0)
         success, response_message = uav.move_latlong(lat,lng)
@@ -157,6 +157,26 @@ def move_latlong():
             mimetype='application/text',
             headers={'Cache-Control': 'no-cache',
             'Access-Control-Allow-Origin': '*'})
+
+@app.route('/api/move_screen_xy', methods=['POST'])
+def move_screen_xy():
+    print "Got POST request to move_screen_xy"
+
+    xpercent = float(request.args.get("xpercent"))
+    ypercent = float(request.args.get("ypercent"))
+    print xpercent, ypercent
+
+    response_message = "Got move_screen_xy request"
+    if USE_DRONE:
+        uav.set_heading(0)
+        success, response_message = uav.move_screen_xy(lat,lng)
+        uav.set_heading(0)
+
+    return Response(response_message,
+            mimetype='application/text',
+            headers={'Cache-Control': 'no-cache',
+            'Access-Control-Allow-Origin': '*'})
+
 
 @app.route('/api/set_altitude', methods=['POST'])
 def set_altitude():
