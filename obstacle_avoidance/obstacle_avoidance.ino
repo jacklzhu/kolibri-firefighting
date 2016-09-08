@@ -11,6 +11,8 @@
   See README for additional information
 
   The F() macro in the Serial statements tells the compiler to keep your strings in PROGMEM
+
+  // Modified by Jack Zhu for Arduino Mega
 */
 
 #include "TimerThree.h" // used for ultrasonic PWM motor control

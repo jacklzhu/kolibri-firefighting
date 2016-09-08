@@ -1,3 +1,7 @@
+'''
+Some utils for the UAV to compute distances and such.
+'''
+
 import math
 from dronekit import mavutil, VehicleMode, LocationGlobal, LocationGlobalRelative
 

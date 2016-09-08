@@ -1,3 +1,8 @@
+'''
+We abstract all the mavlink, error handling, network connections, and safety code
+to the FireflyUAV object, which needs only to be instantiated once.
+'''
+
 from dronekit import mavutil, connect, VehicleMode, LocationGlobal, LocationGlobalRelative
 import time, sys, os, math
 import uavutil

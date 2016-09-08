@@ -1,3 +1,11 @@
+'''
+The main server file. This is what is executed on the 3DR solo.
+
+It provides an easy to use API for the front-end developer to move the uav
+around the fire scene.
+'''
+
+
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import code

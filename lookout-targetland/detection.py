@@ -1,3 +1,8 @@
+'''
+The Detector and DetectorSerial objects provide easy callbacks in the event
+of a obstacle detection. This is largely unfinished.
+'''
+
 import serial
 import signal
 import sys
